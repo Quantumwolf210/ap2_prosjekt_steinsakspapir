@@ -3,3 +3,5 @@ Applikasjon 2 prosjekt
 
 
  link til Miro: https://miro.com/app/board/uXjVGPqECDY=/?share_link_id=222933779007 
+
+ serveren ligger på: localhost 3000.
