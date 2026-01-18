@@ -14,11 +14,11 @@ få alle disse tingene på plass.
 
 klient: brukeren kan velge stein/saks eller papir og se resultat (statistikk)
 
-server: hpndtere innlogging/ registrering ol.
+server: håndtere innlogging/ registrering ol.
 
 brukerkonto: mulighet for og  seette opp en bruker (registrering og innlogging).
 
-database/storage?: for og lagre brukere og spillresultater/statistikk.
+database/storage?: for å lagre brukere og spillresultater/statistikk.
 
 REST-ish API: lagring/ henting resultat, statistikk
 
