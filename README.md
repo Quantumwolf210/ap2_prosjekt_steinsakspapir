@@ -1,5 +1,6 @@
 Applikasjon 2 prosjekt 
  i dette prosjektet skal jeg lage et Steinsakspapir spill. 
+ under er det link til miro og github projekt som jeg bruker til og organisere gjøremål for oppgaven. 
 
 
  link til Miro: https://miro.com/app/board/uXjVGPqECDY=/?share_link_id=222933779007 
@@ -10,9 +11,15 @@ Applikasjon 2 prosjekt
 
 plan for prosjekt:
 få alle disse tingene på plass.
-klient
-server
-brukerkonto
-database/storage?
-REST-ish API
-pwa offline
+
+klient: brukeren kan velge stein/saks eller papir og se resultat (statistikk)
+
+server: hpndtere innlogging/ registrering ol.
+
+brukerkonto: mulighet for og  seette opp en bruker (registrering og innlogging).
+
+database/storage?: for og lagre brukere og spillresultater/statistikk.
+
+REST-ish API: lagring/ henting resultat, statistikk
+
+pwa offline: programmet skal ha noe offline funksjonalitet.
