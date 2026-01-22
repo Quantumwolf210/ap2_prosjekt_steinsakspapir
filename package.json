@@ -1,11 +1,11 @@
 {
+  "name": "SteinSaksPapir",
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "devStart": "nodemon server.js"
+    "start": "node --watch server.mjs"
   },
   "dependencies": {
     "express": "^5.2.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.11"
   }
 }
