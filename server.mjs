@@ -1,7 +1,8 @@
 import express from "express";
-import {createRequire } from "module";
+import { validateChoice } from "../ap2_steinsakspapir_middleware/src/validateChoice.js";
 const require = createRequire(import.meta.url);
-const validateChoice = require ("ap2-steinsakspapir-middleware");
+
+//const validateChoice = require ("ap2-steinsakspapir-middleware");
 
 const port = 8080;
 const app = express();
