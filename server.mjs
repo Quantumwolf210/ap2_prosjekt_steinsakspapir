@@ -1,14 +1,14 @@
 import express from "express";
 import crypto from "node:crypto";
 import path from "node:path";
-import {fileURLToPath } from "nodeurl";
+import {fileURLToPath } from "node:url";
 
 
 
 import { validateChoice } from "../ap2_steinsakspapir_middleware/src/validateChoice.mjs";
 import { error } from "node:console";
 
-const_dirname = path.dirname(fileURLToPath(import.meta.url))
+const _dirname = path.dirname(fileURLToPath(import.meta.url))
 const port = 8080;
 
 const app = express();
@@ -44,18 +44,18 @@ app.get("/api/legal/privacy" , (req, res) => {
 
 app.post("/api/users", (req, res) => {
   const {username, password, accptTOS, tosVersion = "v1"} = req.body ?? {};
-} )
+
 
 if (!username || password) {
-  return res.status(400).json ({ ok: false, error: "username and password are required"});
+  res.status(400).json ({ ok: false, error: "username and password are required"});
 }
 
 if (accptTOS !== true) {
-  return res.status(400).json({ ok: false, error: "You must accsept TOS"});
+  res.status(400).json({ ok: false, error: "You must accsept TOS"});
 }
 
 if (users.has(username)) {
-  return res.status(409).json({ ok: false, error: "username alredy exsists" });
+  res.status(409).json({ ok: false, error: "username alredy exsists" });
 }
 
 const { salt, hash } = hashPassword(password);
@@ -72,7 +72,7 @@ createdAt: new Date().toISOString(),
 
 users.set(username, user);
 
-return res.status(201).json({
+ res.status(201).json({
   ok: true,
   user: {
     id: user.id,
@@ -82,11 +82,13 @@ return res.status(201).json({
     createdAt: user.consentedAt,
   }
 });
+});
 
-  //--slett bruker--//
-
+  //--slett bruker--// 
+  
   app.delete("/api/users", (req, res) => {
-  const {username, password } = req.body ?? {};
+  console.log
+    const {username, password } = req.body ?? {};
   const user = users.get(username);
 
   if (!username || !password) {
@@ -121,5 +123,5 @@ app.post("/api/games", validateChoice, (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log('stein saks papir ${port}')
+  console.log(`stein saks papir ${port}`)
 });

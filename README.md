@@ -34,4 +34,4 @@ passord: lagres ikke i klartext, men som passwordHash + salt for sikker lagring
  santykke til vilkår (ToS): lagr om vilkårene er godtatt og tidspunktet. 
 
 
-evt.createdAAt: for oversikt og feilsøking.
+createdAAt:(valgfritt) brukes for oversikt og feilsøking.
