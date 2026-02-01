@@ -23,3 +23,13 @@ database/storage?: for å lagre brukere og spillresultater/statistikk.
 REST-ish API: lagring/ henting resultat, statistikk
 
 pwa offline: programmet skal ha noe offline funksjonalitet.
+
+brukere & mer.
+
+i denne appen vil jeg holde meg til og samle det jeg trenger for at appen skal fungere:
+
+brukernavn: for og identifisere brukeren
+passord: 
+acceeptTos + acseptedAt: brukervilkår
+
+evt.createdAAt: for oversikt og feilsøking
