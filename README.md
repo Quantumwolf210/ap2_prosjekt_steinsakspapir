@@ -28,8 +28,10 @@ brukere & mer.
 
 i denne appen vil jeg holde meg til og samle det jeg trenger for at appen skal fungere:
 
-brukernavn: for og identifisere brukeren
-passord: 
-acceeptTos + acseptedAt: brukervilkår
+brukernavn: for og identifisere brukeren i systemet
+passord: lagres ikke i klartext, men som passwordHash + salt for sikker lagring
 
-evt.createdAAt: for oversikt og feilsøking
+ santykke til vilkår (ToS): lagr om vilkårene er godtatt og tidspunktet. 
+
+
+evt.createdAAt: for oversikt og feilsøking.
