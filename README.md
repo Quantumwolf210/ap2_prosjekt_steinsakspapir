@@ -7,7 +7,7 @@ Applikasjon 2 prosjekt
 
  link til github todo liste: https://github.com/users/Quantumwolf210/projects/1/views/1 
 
- serveren ligger på: localhost 3000.
+ serveren ligger på: localhost 8080.
 
 plan for prosjekt:
 få alle disse tingene på plass.

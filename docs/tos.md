@@ -4,7 +4,7 @@ Følgene er vilkårene for og bruke denne appen.
 
 bruk av tjenesten
 
--du må ha en konto for å lagre spill/resultat.
+du må ha en konto for å lagre spill/resultat.
 
 ditt inhold din data
 du eier dine data.

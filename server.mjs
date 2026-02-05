@@ -3,12 +3,10 @@ import crypto from "node:crypto";
 import path from "node:path";
 import {fileURLToPath } from "node:url";
 
-
-
 import { validateChoice } from "../ap2_steinsakspapir_middleware/src/validateChoice.mjs";
-import { error } from "node:console";
 
-const _dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = 8080;
 
 const app = express();
