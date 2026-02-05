@@ -6,7 +6,7 @@
     "start": "node --watch server.mjs"
   },
   "dependencies": {
-    "ap2-steinsakspapir-middleware": "file:../ap2_steinsakspapir_middleware",
+    "ap2_steinsakspapir_middleware": "file:../ap2_steinsakspapir_middleware",
     "express": "^5.2.1"
   }
 }

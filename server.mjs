@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import {fileURLToPath } from "node:url";
 
-import { validateChoice } from "../ap2_steinsakspapir_middleware/src/validateChoice.mjs";
+import { validateChoice } from "ap2_steinsakspapir_middleware";
 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
