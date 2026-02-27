@@ -44,16 +44,16 @@ app.post("/api/users", (req, res) => {
   const {username, password, accptTOS, tosVersion = "v1"} = req.body ?? {};
 
 
-if (!username || password) {
-  res.status(400).json ({ ok: false, error: "username and password are required"});
+if (!username || !password) {
+  return res.status(400).json ({ ok: false, error: "username and password are required"});
 }
 
 if (accptTOS !== true) {
-  res.status(400).json({ ok: false, error: "You must accsept TOS"});
+  return res.status(400).json({ ok: false, error: "You must accsept TOS"});
 }
 
 if (users.has(username)) {
-  res.status(409).json({ ok: false, error: "username alredy exsists" });
+  return res.status(409).json({ ok: false, error: "username alredy exsists" });
 }
 
 const { salt, hash } = hashPassword(password);
