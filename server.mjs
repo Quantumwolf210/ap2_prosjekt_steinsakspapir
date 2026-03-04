@@ -123,3 +123,37 @@ app.post("/api/games", validateChoice, (req, res) => {
 app.listen(port, () => {
   console.log(`stein saks papir ${port}`)
 });
+
+
+//---------------------------public mappefil funksjon--------------------------//
+
+app.patch("/api/users", (req, res) => {
+  const { username, password, tosVersion } = req.body ?? {};
+  if (!username || !password || !tosVersion) {
+    return res.status(400).json({ ok: false, error: "username, password and tosVersion are required" });
+  }
+
+  const user = users.get(username);
+  if (!user) return res.status(404).json({ ok: false, error: "user not found" });
+
+  if (!verifyPassword(password, user.passwordSalt, user.passwordHash)) {
+    return res.status(401).json({ ok: false, error: "invalid credentials" });
+  }
+
+  user.tosVersion = tosVersion;
+  user.consentedAt = new Date().toISOString();
+  users.set(username, user);
+
+  return res.json({
+    ok: true,
+    user: {
+      id: user.id,
+      username: user.username,
+      tosVersion: user.tosVersion,
+      consentedAt: user.consentedAt,
+      createdAt: user.createdAt,
+    },
+  });
+});
+
+//-----------------------------------------------------------------------//
