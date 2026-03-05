@@ -16,14 +16,17 @@ app.use(express.static('public'))
 // in memory users//
 const users = new Map(); //brukernavn
 
-function hashPassword(Password, salt, exspectedHash){
-  const hash = crypto.scryptSync(Password, salt, 64).toString("hex");
-  return {salt, hash };
-} 
-
-function verifyPassword(Password, salt, exspectedHash) {
-  const hash = crypto.scryptSync(Password, salt, 64).toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(exspectedHash, "hex"));
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return { salt, hash };
+}
+function verifyPassword(password, salt, expectedHash) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(hash, "hex"),
+    Buffer.from(expectedHash, "hex")
+  );
 }
 
 //--brukervilkår--//

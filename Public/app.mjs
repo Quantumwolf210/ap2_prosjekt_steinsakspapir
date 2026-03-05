@@ -11,8 +11,8 @@ document.querySelector("#app").innerHTML = `
 async function apiRequest(path, { method = "GET", body } = {}) {
  const res = await fetch(path,  {
         method,
-        headers: body ? { "content-Type": "application/json" } : undefined,
-        body: body ? json.stringify(body) : undefined,
+        headers: body ? { "content-Type": "application/JSON" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
     });
 
                 // 204 No Content//
@@ -20,7 +20,7 @@ if (res.status === 204) return {ok: true };
 
 const text = await res.text();
 let data = {};
-try { data = text ? json.parse(text) : {}; } catch{ data = {raw: text}; }
+try { data = text ? JSON.parse(text) : {}; } catch{ data = {raw: text}; }
 
 //----------------------------------------------------------------------//
 
