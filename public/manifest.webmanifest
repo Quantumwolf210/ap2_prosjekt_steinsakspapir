@@ -1,0 +1,9 @@
+{
+    "name" : "stein saks Papir",
+    "short_name" : "SSP" ,
+    "start_url" : "/",
+    "display" : "standalone",
+    "background_color" : "#ffffff",
+    "theme_color" : "#ffffff",
+    "icons" : []
+}
