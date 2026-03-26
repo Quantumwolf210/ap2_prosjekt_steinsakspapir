@@ -15,6 +15,36 @@ const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
+//-----------------------------------------------------------//
+function getLang(req) {
+  const h = (req.headers["accept-language"] || "").toLowerCase();
+  return h.startsWith("no") || h.startsWith("nb") || h.startsWith("nn") ? "no" : "en";
+}
+
+const messages = {
+  en: {
+    required_user_pass: "username and password are required",
+    must_accept_tos: "You must accept ToS",
+    username_exists: "username already exists",
+    user_not_found: "user not found",
+    invalid_credentials: "invalid credentials",
+    required_user_pass_tos: "username, password and tosVersion are required",
+  },
+  no: {
+    required_user_pass: "brukernavn og passord er påkrevd",
+    must_accept_tos: "du må godta vilkårene",
+    username_exists: "brukernavn finnes allerede",
+    user_not_found: "bruker ikke funnet",
+    invalid_credentials: "ugyldig brukernavn/passord",
+    required_user_pass_tos: "brukernavn, passord og tosVersion er påkrevd",
+  },
+};
+
+function err(res, req, status, key) {
+  const lang = getLang(req);
+  return res.status(status).json({ ok: false, error: messages[lang][key] || key });
+}
+
 // -------------------- Password helpers --------------------
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -24,37 +54,49 @@ function hashPassword(password) {
 
 function verifyPassword(password, salt, expectedHash) {
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(hash, "hex"),
-    Buffer.from(expectedHash, "hex")
-  );
+  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(expectedHash, "hex"));
 }
 
-// -------------------- Database (robust) --------------------
+// -------------------- Storage: Postgres when DATABASE_URL exists, else memory --------------------
 let pool = null;
-const usersMemory = new Map(); // fallback when DATABASE_URL is not set
+const usersMemory = new Map(); // username -> user
 
-if (process.env.DATABASE_URL) {
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+async function initDbIfConfigured() {
+  if (!process.env.DATABASE_URL) {
+    console.log("ℹ️ DATABASE_URL not set — using in-memory storage");
+    return;
+  }
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id uuid PRIMARY KEY,
-      username text UNIQUE NOT NULL,
-      password_hash text NOT NULL,
-      password_salt text NOT NULL,
-      tos_version text NOT NULL,
-      consented_at timestamptz NOT NULL,
-      created_at timestamptz NOT NULL
-    );
-  `);
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
 
-  console.log("✅ Database connected");
-} else {
-  console.log("ℹ️ DATABASE_URL not set — using in-memory storage");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id uuid PRIMARY KEY,
+        username text UNIQUE NOT NULL,
+        password_hash text NOT NULL,
+        password_salt text NOT NULL,
+        tos_version text NOT NULL,
+        consented_at timestamptz NOT NULL,
+        created_at timestamptz NOT NULL
+      );
+    `);
+
+    console.log("✅ Database connected");
+  } catch (e) {
+    pool = null;
+    console.log("⚠️ Database connection failed — falling back to in-memory storage");
+    console.log(e?.message ?? e);
+  }
+}
+
+function safeIso(value) {
+  // pg can return Date objects depending on config; normalize to ISO string for JSON
+  if (!value) return value;
+  return value instanceof Date ? value.toISOString() : value;
 }
 
 // -------------------- Legal docs --------------------
@@ -63,230 +105,169 @@ app.get("/api/legal/tos", (req, res) => {
 });
 
 app.get("/api/legal/privacy", (req, res) => {
-  res
-    .type("text/markdown")
-    .sendFile(path.join(__dirname, "docs", "privacy.md"));
+  res.type("text/markdown").sendFile(path.join(__dirname, "docs", "privacy.md"));
 });
 
-// -------------------- Users --------------------
+// -------------------- Users: CREATE --------------------
 app.post("/api/users", async (req, res) => {
-  const { username, password, accptTOS, tosVersion = "v1" } = req.body ?? {};
+  try {
+    const { username, password, accptTOS, tosVersion = "v1" } = req.body ?? {};
 
-  if (!username || !password) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "username and password are required" });
-  }
+    if (!username || !password) return err(res, req, 400, "required_user_pass");
+    if (accptTOS !== true) return err(res, req, 400, "must_accept_tos");
 
-  if (accptTOS !== true) {
-    return res.status(400).json({ ok: false, error: "You must accept TOS" });
-  }
+    const now = new Date().toISOString();
 
-  // DB path
-  if (pool) {
-    const existingUserResult = await pool.query(
-      "SELECT 1 FROM users WHERE username = $1",
-      [username]
-    );
+    if (pool) {
+      const existing = await pool.query("SELECT 1 FROM users WHERE username = $1", [username]);
+      if (existing.rowCount > 0) return err(res, req, 409, "username_exists");
 
-    if (existingUserResult.rowCount > 0) {
-      return res
-        .status(409)
-        .json({ ok: false, error: "username already exists" });
+      const { salt, hash } = hashPassword(password);
+      const id = crypto.randomUUID();
+
+      await pool.query(
+        `INSERT INTO users (id, username, password_hash, password_salt, tos_version, consented_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, username, hash, salt, tosVersion, now, now]
+      );
+
+      return res.status(201).json({
+        ok: true,
+        user: { id, username, tosVersion, consentedAt: now, createdAt: now },
+      });
     }
 
+    if (usersMemory.has(username)) return err(res, req, 409, "username_exists");
+
     const { salt, hash } = hashPassword(password);
-    const newUser = {
+    const user = {
       id: crypto.randomUUID(),
       username,
       passwordHash: hash,
       passwordSalt: salt,
       tosVersion,
-      consentedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
+      consentedAt: now,
+      createdAt: now,
     };
 
-    await pool.query(
-      `INSERT INTO users (id, username, password_hash, password_salt, tos_version, consented_at, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [
-        newUser.id,
-        newUser.username,
-        newUser.passwordHash,
-        newUser.passwordSalt,
-        newUser.tosVersion,
-        newUser.consentedAt,
-        newUser.createdAt,
-      ]
-    );
+    usersMemory.set(username, user);
 
     return res.status(201).json({
       ok: true,
       user: {
-        id: newUser.id,
-        username: newUser.username,
-        tosVersion: newUser.tosVersion,
-        consentedAt: newUser.consentedAt,
-        createdAt: newUser.createdAt,
+        id: user.id,
+        username: user.username,
+        tosVersion: user.tosVersion,
+        consentedAt: user.consentedAt,
+        createdAt: user.createdAt,
       },
     });
+  } catch (e) {
+    console.log(e?.message ?? e);
+    return res.status(500).json({ ok: false, error: "server error" });
   }
-
-  // Memory path
-  if (usersMemory.has(username)) {
-    return res
-      .status(409)
-      .json({ ok: false, error: "username already exists" });
-  }
-
-  const { salt, hash } = hashPassword(password);
-  const newUser = {
-    id: crypto.randomUUID(),
-    username,
-    passwordHash: hash,
-    passwordSalt: salt,
-    tosVersion,
-    consentedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-  };
-
-  usersMemory.set(username, newUser);
-
-  return res.status(201).json({
-    ok: true,
-    user: {
-      id: newUser.id,
-      username: newUser.username,
-      tosVersion: newUser.tosVersion,
-      consentedAt: newUser.consentedAt,
-      createdAt: newUser.createdAt,
-    },
-  });
 });
 
+// -------------------- Users: DELETE --------------------
 app.delete("/api/users", async (req, res) => {
-  const { username, password } = req.body ?? {};
+  try {
+    const { username, password } = req.body ?? {};
+    if (!username || !password) return err(res, req, 400, "required_user_pass");
 
-  if (!username || !password) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "username and password are required" });
-  }
+    if (pool) {
+      const found = await pool.query(
+        "SELECT password_hash, password_salt FROM users WHERE username = $1",
+        [username]
+      );
+      if (found.rowCount === 0) return err(res, req, 404, "user_not_found");
 
-  // DB path
-  if (pool) {
-    const userLookupResult = await pool.query(
-      "SELECT password_hash, password_salt FROM users WHERE username = $1",
-      [username]
-    );
+      const dbUser = found.rows[0];
+      if (!verifyPassword(password, dbUser.password_salt, dbUser.password_hash)) {
+        return err(res, req, 401, "invalid_credentials");
+      }
 
-    if (userLookupResult.rowCount === 0) {
-      return res.status(404).json({ ok: false, error: "user not found" });
+      await pool.query("DELETE FROM users WHERE username = $1", [username]);
+      return res.status(204).send();
     }
 
-    const dbUser = userLookupResult.rows[0];
-
-    if (!verifyPassword(password, dbUser.password_salt, dbUser.password_hash)) {
-      return res
-        .status(401)
-        .json({ ok: false, error: "invalid credentials" });
+    const memoryUser = usersMemory.get(username);
+    if (!memoryUser) return err(res, req, 404, "user_not_found");
+    if (!verifyPassword(password, memoryUser.passwordSalt, memoryUser.passwordHash)) {
+      return err(res, req, 401, "invalid_credentials");
     }
 
-    await pool.query("DELETE FROM users WHERE username = $1", [username]);
+    usersMemory.delete(username);
     return res.status(204).send();
+  } catch (e) {
+    console.log(e?.message ?? e);
+    return res.status(500).json({ ok: false, error: "server error" });
   }
-
-  // Memory path
-  const memoryUser = usersMemory.get(username);
-
-  if (!memoryUser) {
-    return res.status(404).json({ ok: false, error: "user not found" });
-  }
-
-  if (!verifyPassword(password, memoryUser.passwordSalt, memoryUser.passwordHash)) {
-    return res.status(401).json({ ok: false, error: "invalid credentials" });
-  }
-
-  usersMemory.delete(username);
-  return res.status(204).send();
 });
 
+// -------------------- Users: PATCH (update tosVersion) --------------------
 app.patch("/api/users", async (req, res) => {
-  const { username, password, tosVersion } = req.body ?? {};
+  try {
+    const { username, password, tosVersion } = req.body ?? {};
+    if (!username || !password || !tosVersion) return err(res, req, 400, "required_user_pass_tos");
 
-  if (!username || !password || !tosVersion) {
-    return res.status(400).json({
-      ok: false,
-      error: "username, password and tosVersion are required",
-    });
-  }
+    if (pool) {
+      const found = await pool.query(
+        "SELECT id, password_hash, password_salt, created_at FROM users WHERE username = $1",
+        [username]
+      );
+      if (found.rowCount === 0) return err(res, req, 404, "user_not_found");
 
-  // DB path
-  if (pool) {
-    const userLookupResult = await pool.query(
-      "SELECT password_hash, password_salt FROM users WHERE username = $1",
-      [username]
-    );
+      const dbUser = found.rows[0];
+      if (!verifyPassword(password, dbUser.password_salt, dbUser.password_hash)) {
+        return err(res, req, 401, "invalid_credentials");
+      }
 
-    if (userLookupResult.rowCount === 0) {
-      return res.status(404).json({ ok: false, error: "user not found" });
+      const updated = await pool.query(
+        `UPDATE users
+         SET tos_version = $2, consented_at = NOW()
+         WHERE username = $1
+         RETURNING id, username, tos_version, consented_at, created_at`,
+        [username, tosVersion]
+      );
+
+      const updatedUser = updated.rows[0];
+
+      return res.json({
+        ok: true,
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          tosVersion: updatedUser.tos_version,
+          consentedAt: safeIso(updatedUser.consented_at),
+          createdAt: safeIso(updatedUser.created_at),
+        },
+      });
     }
 
-    const dbUser = userLookupResult.rows[0];
-
-    if (!verifyPassword(password, dbUser.password_salt, dbUser.password_hash)) {
-      return res
-        .status(401)
-        .json({ ok: false, error: "invalid credentials" });
+    const memoryUser = usersMemory.get(username);
+    if (!memoryUser) return err(res, req, 404, "user_not_found");
+    if (!verifyPassword(password, memoryUser.passwordSalt, memoryUser.passwordHash)) {
+      return err(res, req, 401, "invalid_credentials");
     }
 
-    const updateResult = await pool.query(
-      `UPDATE users
-       SET tos_version = $2, consented_at = NOW()
-       WHERE username = $1
-       RETURNING id, username, tos_version, consented_at, created_at`,
-      [username, tosVersion]
-    );
-
-    const updatedUserRow = updateResult.rows[0];
+    memoryUser.tosVersion = tosVersion;
+    memoryUser.consentedAt = new Date().toISOString();
+    usersMemory.set(username, memoryUser);
 
     return res.json({
       ok: true,
       user: {
-        id: updatedUserRow.id,
-        username: updatedUserRow.username,
-        tosVersion: updatedUserRow.tos_version,
-        consentedAt: updatedUserRow.consented_at,
-        createdAt: updatedUserRow.created_at,
+        id: memoryUser.id,
+        username: memoryUser.username,
+        tosVersion: memoryUser.tosVersion,
+        consentedAt: memoryUser.consentedAt,
+        createdAt: memoryUser.createdAt,
       },
     });
+  } catch (e) {
+    console.log(e?.message ?? e);
+    return res.status(500).json({ ok: false, error: "server error" });
   }
-
-  // Memory path
-  const memoryUser = usersMemory.get(username);
-
-  if (!memoryUser) {
-    return res.status(404).json({ ok: false, error: "user not found" });
-  }
-
-  if (!verifyPassword(password, memoryUser.passwordSalt, memoryUser.passwordHash)) {
-    return res.status(401).json({ ok: false, error: "invalid credentials" });
-  }
-
-  memoryUser.tosVersion = tosVersion;
-  memoryUser.consentedAt = new Date().toISOString();
-  usersMemory.set(username, memoryUser);
-
-  return res.json({
-    ok: true,
-    user: {
-      id: memoryUser.id,
-      username: memoryUser.username,
-      tosVersion: memoryUser.tosVersion,
-      consentedAt: memoryUser.consentedAt,
-      createdAt: memoryUser.createdAt,
-    },
-  });
 });
 
 // -------------------- Game --------------------
@@ -296,6 +277,9 @@ app.post("/api/games", validateChoice, (req, res) => {
     playerChoice: req.body.playerChoice,
   });
 });
+
+// -------------------- Start --------------------
+await initDbIfConfigured();
 
 app.listen(port, () => {
   console.log(`stein saks papir ${port}`);
