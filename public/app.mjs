@@ -1,35 +1,80 @@
+// -------------------- i18n --------------------
+const lang = (navigator.language || "en").toLowerCase().startsWith("no") ? "no" : "en";
+document.documentElement.lang = lang;
 
-console.log("client loaded");
+const texts = {
+  no: {
+    title: "Klient",
+    createUser: "Opprett bruker",
+    deleteUser: "Slett bruker",
+    editUser: "Rediger bruker",
+    username: "brukernavn",
+    password: "passord",
+    tosVersion: "tosVersion (f.eks v2)",
+    acceptTos: "Jeg godtar vilkår",
+    create: "Opprett",
+    delete: "Slett",
+    update: "Oppdater",
+    created: (u) => `Opprettet: ${u}`,
+    deleted: (u) => `Slettet: ${u}`,
+    updated: (u, v) => `Oppdatert: ${u} (${v})`,
+    offline: "Du er offline",
+  },
+  en: {
+    title: "Client",
+    createUser: "Create user",
+    deleteUser: "Delete user",
+    editUser: "Edit user",
+    username: "username",
+    password: "password",
+    tosVersion: "tosVersion (e.g. v2)",
+    acceptTos: "I accept ToS",
+    create: "Create",
+    delete: "Delete",
+    update: "Update",
+    created: (u) => `Created: ${u}`,
+    deleted: (u) => `Deleted: ${u}`,
+    updated: (u, v) => `Updated: ${u} (${v})`,
+    offline: "You are offline",
+  },
+};
 
-document.querySelector("#app").innerHTML = `
-<h1>Client</h1>
-<p> Hvis du ser dette, blir public-filer servert riktig.</p>
-`;
+function t(key, ...args) {
+  const value = texts[lang][key];
+  return typeof value === "function" ? value(...args) : value;
+}
 
-//--------------------------en fetch funksjon)-------------------//
+// -------------------- Service Worker register --------------------
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js");
+}
 
+// -------------------- fetch-funksjon + send språk til server --------------------
 async function apiRequest(path, { method = "GET", body } = {}) {
- const res = await fetch(path,  {
-        method,
-        headers: body ? { "content-Type": "application/JSON" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-    });
+  const res = await fetch(path, {
+    method,
+    headers: {
+      ...(body ? { "content-type": "application/json" } : {}),
+      "accept-language": navigator.language || "en",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-                // 204 No Content//
-if (res.status === 204) return {ok: true };
+  if (res.status === 204) return { ok: true };
 
-const text = await res.text();
-let data = {};
-try { data = text ? JSON.parse(text) : {}; } catch{ data = {raw: text}; }
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
 
-//----------------------------------------------------------------------//
-
-
-if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
   return data;
 }
 
-// -------------------- LOGIC (bruker kun apiRequest) --------------------
+// -------------------- LOGIC --------------------
 function createUser({ username, password, accptTOS }) {
   return apiRequest("/api/users", {
     method: "POST",
@@ -60,32 +105,32 @@ class UserManager extends HTMLElement {
 
   render() {
     this.innerHTML = `
-      <h1>Client</h1>
+      <h1>${t("title")}</h1>
 
       <section>
-        <h2>Create user</h2>
-        <input id="c-u" placeholder="username" />
-        <input id="c-p" placeholder="password" type="password" />
-        <label><input id="c-tos" type="checkbox" /> I accept ToS</label>
-        <button id="c-btn">Create</button>
+        <h2>${t("createUser")}</h2>
+        <input id="c-u" placeholder="${t("username")}" />
+        <input id="c-p" placeholder="${t("password")}" type="password" />
+        <label><input id="c-tos" type="checkbox" /> ${t("acceptTos")}</label>
+        <button id="c-btn">${t("create")}</button>
       </section>
 
       <section>
-        <h2>Delete user</h2>
-        <input id="d-u" placeholder="username" />
-        <input id="d-p" placeholder="password" type="password" />
-        <button id="d-btn">Delete</button>
+        <h2>${t("deleteUser")}</h2>
+        <input id="d-u" placeholder="${t("username")}" />
+        <input id="d-p" placeholder="${t("password")}" type="password" />
+        <button id="d-btn">${t("delete")}</button>
       </section>
 
       <section>
-        <h2>Edit user</h2>
-        <input id="e-u" placeholder="username" />
-        <input id="e-p" placeholder="password" type="password" />
-        <input id="e-v" placeholder="tosVersion (f.eks v2)" />
-        <button id="e-btn">Update</button>
+        <h2>${t("editUser")}</h2>
+        <input id="e-u" placeholder="${t("username")}" />
+        <input id="e-p" placeholder="${t("password")}" type="password" />
+        <input id="e-v" placeholder="${t("tosVersion")}" />
+        <button id="e-btn">${t("update")}</button>
       </section>
 
-      <p id="msg"></p>
+      <p id="msg" aria-live="polite"></p>
     `;
   }
 
@@ -101,8 +146,9 @@ class UserManager extends HTMLElement {
         const username = this.querySelector("#c-u").value.trim();
         const password = this.querySelector("#c-p").value;
         const accptTOS = this.querySelector("#c-tos").checked;
+
         const res = await createUser({ username, password, accptTOS });
-        show(`Created: ${res.user.username}`);
+        show(t("created", res.user.username));
       } catch (e) {
         show(e.message, true);
       }
@@ -112,8 +158,9 @@ class UserManager extends HTMLElement {
       try {
         const username = this.querySelector("#d-u").value.trim();
         const password = this.querySelector("#d-p").value;
+
         await deleteUser({ username, password });
-        show(`Deleted: ${username}`);
+        show(t("deleted", username));
       } catch (e) {
         show(e.message, true);
       }
@@ -124,16 +171,17 @@ class UserManager extends HTMLElement {
         const username = this.querySelector("#e-u").value.trim();
         const password = this.querySelector("#e-p").value;
         const tosVersion = this.querySelector("#e-v").value.trim();
+
         const res = await editUser({ username, password, tosVersion });
-        show(`Updated: ${res.user.username} (${res.user.tosVersion})`);
+        show(t("updated", res.user.username, res.user.tosVersion));
       } catch (e) {
         show(e.message, true);
       }
     });
+
+    window.addEventListener("offline", () => show(t("offline"), true));
   }
 }
 
 customElements.define("user-manager", UserManager);
-
-// mount
 document.querySelector("#app").innerHTML = `<user-manager></user-manager>`;
