@@ -9,6 +9,13 @@ Applikasjon 2 prosjekt
 
  serveren ligger på: localhost 8080.
 
+live (Render): https://steinsakspapir-yc6d.onrender.com/ 
+
+Applikasjonen kjører som en Web Service på render og bruker en PostgreSQL-database på render.
+Når DATABASE_URL er satt i Render, lagres og hentes brukere fra databasen.
+data presisterer selv om serveren restartes.  
+
+
 plan for prosjekt:
 få alle disse tingene på plass.
 
