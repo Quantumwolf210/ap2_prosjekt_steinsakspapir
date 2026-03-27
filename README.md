@@ -22,7 +22,7 @@ live (Render): https://steinsakspapir-yc6d.onrender.com/
 
 kjør lokalt
 
-innstaler avhengigheter med "npm install", og start serveren med "npm start. serveren kjører da på port 8080 lokalt. 
+innstaler avhengigheter med "npm install", og start serveren med "npm start". serveren kjører da på port 8080 lokalt. 
 
 hvis "DATABASE_URL" ikke er satt lokalt, bruker serveren in memory lagring for brukere  (kun for enkel lokal testing).
 
